@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -599,12 +598,12 @@ input:checked+.tog-sl:before{transform:translateX(16px)}
 <script>
 /* ═══ FIREBASE INIT ═══ */
 const firebaseConfig = {
-  apiKey: "AIzaSyCbHwOifJ_ajPyxr66uTUpqugDl5GW8tOY",
-  authDomain: "quetta-seating.firebaseapp.com",
-  projectId: "quetta-seating",
-  storageBucket: "quetta-seating.firebasestorage.app",
-  messagingSenderId: "804478055238",
-  appId: "1:804478055238:web:1513972a9df85405f7ab47"
+  apiKey: "AIzaSyACXF7mkTWjRdLYJvmGCAY5BIuBo6pKSk0",
+  authDomain: "campusm-seating.firebaseapp.com",
+  projectId: "campusm-seating",
+  storageBucket: "campusm-seating.firebasestorage.app",
+  messagingSenderId: "300917016440",
+  appId: "1:300917016440:web:e7f94d03b7b5d102c92a8d"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -625,13 +624,12 @@ let S={
 };
 let pendingExam='',_rzId=null,dragSrc=null,_editStuIdx=null,_uploadRoomId='all';
 let _statsExam='all';
-let _printMask=true; // 학생용 인쇄 시 이름 마스킹 여부
-let _saveTimer=null;   // debounce timer
-let _syncing=false;    // prevent feedback loop from onSnapshot
+let _printMask=true;
+let _saveTimer=null;
+let _syncing=false;
 
 /* ═══ FIRESTORE SAVE (debounced 800ms) ═══ */
 function saveAll(){
-  // 배열편집 모드일 땐 로컬 임시저장만 — Firebase엔 올리지 않음
   if(S.view==='edit'){
     saveTempLocal();
     return;
@@ -639,12 +637,10 @@ function saveAll(){
   pushToFirebase();
 }
 
-// 로컬 임시저장 (배열편집 중 변경사항 보존용, Firebase X)
 function saveTempLocal(){
   try{ localStorage.setItem('qtt_temp', JSON.stringify({rooms:S.rooms})); }catch(e){}
 }
 
-// 실제 Firebase 저장
 function pushToFirebase(){
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
@@ -664,7 +660,6 @@ function pushToFirebase(){
   },400);
 }
 
-// 배열편집 화면에서 수동 저장 버튼용
 function saveLayoutNow(){
   pushToFirebase();
   toast('강의실 배열을 서버에 저장했습니다 ✅','ok');
@@ -672,7 +667,6 @@ function saveLayoutNow(){
 
 /* ═══ LOAD FROM FIRESTORE + REALTIME SYNC ═══ */
 function load(){
-  // 로딩 인디케이터 표시
   document.getElementById('main').innerHTML=`
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
       height:60vh;gap:16px;color:var(--sl400)">
@@ -681,7 +675,6 @@ function load(){
     </div>
     <style>@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}</style>`;
 
-  // 실시간 리스너 — 누군가 저장하면 모든 접속자 화면이 자동 갱신
   DOC.onSnapshot(snap=>{
     if(_syncing) return;
     if(snap.exists){
@@ -695,20 +688,16 @@ function load(){
       if(!S.active||!S.rooms.find(r=>r.id===S.active))
         S.active=S.rooms[0]?.id||null;
     } else {
-      // Firestore에 데이터 없음 → localStorage 마이그레이션 시도
       const migrated = migrateFromLocalStorage();
       if(!migrated){
-        // localStorage도 없으면 기본값으로 시작
         S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
         S.active=S.rooms[0]?.id||null;
       }
-      // 어느 쪽이든 Firestore에 저장
       saveAll();
     }
     renderAll();
   }, err=>{
     console.error('Firestore 리스너 오류:',err);
-    // Firestore 실패 시 localStorage fallback
     migrateFromLocalStorage();
     if(!S.rooms.length) S.rooms=DEF_ROOMS.map(n=>mkRoom(n,8,9));
     S.active=S.rooms[0]?.id||null;
@@ -722,7 +711,6 @@ function load(){
 
 /* ═══ LOCALSTORAGE → FIRESTORE 마이그레이션 ═══ */
 function migrateFromLocalStorage(){
-  // 이전 버전 키 목록 (최신순)
   const OLD_KEYS=['qtt_v9','qtt_v8','qtt_v7','qtt_v6','qtt_v5','qtt_v4'];
   for(const key of OLD_KEYS){
     try{
@@ -765,15 +753,12 @@ function mkCells(rows,cols){
   return c;
 }
 function renum(cells){
-  // dn: row-major over non-void (active+blocked)
   [...cells].filter(c=>c.state!=='void').sort((a,b)=>a.r-b.r||a.c-b.c).forEach((c,i)=>c.dn=i+1);
-  // n: col-major over active only
   [...cells].filter(c=>c.state==='active').sort((a,b)=>a.c-b.c||a.r-b.r).forEach((c,i)=>c.n=i+1);
   cells.filter(c=>c.state==='void').forEach(c=>{c.dn=null;c.n=null;});
   cells.filter(c=>c.state==='blocked').forEach(c=>c.n=null);
 }
 
-/* Build dynamic grid-template-columns: void columns get 8px, others get seat width */
 function getColTemplate(room,isProctor,seatW){
   const colEmpty=Array(room.cols).fill(true);
   room.cells.forEach(cell=>{if(cell.state!=='void') colEmpty[cell.c]=false;});
@@ -858,11 +843,9 @@ function handleUpload(e){
 
       const parsed=rows.filter(r=>r[map.이름]&&r[map.학번]).map((r,i)=>{
         const excelRoom=map[map.고사장]!==undefined?String(r[map.고사장]||'').trim():'';
-        // for per-room upload: if excel has 고사장 column and it differs → unassigned
         const targetRoom=_uploadRoomId!=='all'?_uploadRoomId:excelRoom;
         let assignRoom=targetRoom,assignSeat=+r[map.자리]||0;
         if(_uploadRoomId!=='all'&&map[map.고사장]!==undefined&&excelRoom&&excelRoom!==_uploadRoomId){
-          // mismatch: mark as unassigned in target room
           assignRoom=_uploadRoomId;assignSeat=0;
         }
         return{
@@ -918,7 +901,6 @@ function renderMain(){
   document.getElementById('exam-row').style.display='';
   refreshExamDD(room);
   document.getElementById('edit-mode-btn').classList.toggle('on',S.editStudentMode);
-  // swap bar 숨김 (swap 기능 제거됨)
   document.getElementById('swap-bar').classList.remove('on');
   if(S.view==='edit') renderEdit(room);
   else renderGrid(room,S.view==='proctor');
@@ -982,9 +964,7 @@ function renderGrid(room,isProctor){
   const examObj=examByName(room.examType);
   const examLabel=room.examType?room.examType:'';
   const examDate=examObj?.date?`(시행일:${examObj.date})`:'';
-  const noticeHtml=room.notice?`<div class="notice-bar">${room.notice}</div>`:'';
 
-  // print header block
   const prtHdr=`<div class="print-hdr-block">
     <div class="phb-top">
       <span class="phb-room">${room.name}</span>
@@ -995,7 +975,6 @@ function renderGrid(room,isProctor){
     ${room.notice?`<div class="phb-notice">${room.notice}</div>`:''}
   </div>`;
 
-  // notice input (screen only)
   const noticeEdit=`<div style="padding:8px 15px;background:var(--sl50);border-bottom:1px solid var(--sl200)" data-noprint>
     <label style="font-size:10px;font-weight:700;color:var(--sl400);letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:4px">인쇄용 공지 (선택)</label>
     <textarea class="notice-input" placeholder="수험생 주의사항 등 인쇄 시 상단에 표시할 내용을 입력하세요..." onchange="saveNotice('${room.id}',this.value)">${room.notice||''}</textarea>
@@ -1142,7 +1121,7 @@ function classMatrix(stus,rooms){
 function renderEdit(room){
   document.getElementById('exam-row').style.display='';
   const cells=[...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
-  const colTpl=Array(room.cols).fill(0).map((_, ci)=>{
+  const colTpl=Array(room.cols).fill(0).map((_,ci)=>{
     const colHasContent=room.cells.some(c=>c.c===ci&&c.state!=='void');
     return colHasContent?'44px':'8px';
   }).join(' ');
@@ -1201,18 +1180,14 @@ function clickSeat(roomId,n){
   if(cell?.state==='blocked') return;
 
   if(!S.editStudentMode){
-    // 개별편집 모드 아닐 때 — 안내 토스트만
     toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
     return;
   }
 
-  // 개별편집 모드
   const stu=seatStu(roomId,n);
   if(stu){
-    // 학생 있는 좌석 → 정보 수정 / 이동 모달
     openEditStu(stu._i);
   } else {
-    // 빈 좌석 → 수기 학생 등록
     openAddStu(roomId,n);
   }
 }
@@ -1230,7 +1205,6 @@ function cancelSwap(){S.swap=null;renderMain();}
 
 /* ═══ DRAG & DROP ═══ */
 function onDragStart(e,type,roomId,cellN,stuIdx){
-  // 개별편집 모드가 아니면 드래그 차단
   if(!S.editStudentMode){
     e.preventDefault();
     toast('✎ 개별편집 버튼을 먼저 켜주세요','err');
@@ -1552,7 +1526,6 @@ function printAll(mode, maskNames=false){
   const isStudent = mode === 'student';
   const seatW = 78;
 
-  // 각 강의실 HTML 생성
   const pages = S.rooms.map(room => {
     const stus = roomStu(room.id);
     if(!stus.length && room.cells.filter(c=>c.state==='active').length===0) return '';
@@ -1560,19 +1533,16 @@ function printAll(mode, maskNames=false){
     const sorted = [...room.cells].sort((a,b)=>a.r-b.r||a.c-b.c);
     const cells  = isStudent ? sorted : [...sorted].reverse();
 
-    // col template
     const colEmpty = Array(room.cols).fill(true);
     room.cells.forEach(cell=>{ if(cell.state!=='void') colEmpty[cell.c]=false; });
     let colArr = colEmpty.map(e=>e?'8px':`${seatW}px`);
     if(!isStudent) colArr = [...colArr].reverse();
     const colTpl = colArr.join(' ');
 
-    // class info
     const classMap={}, classCnt={};
     stus.forEach(s=>{ if(s.반&&s.반코드) classMap[s.반]=s.반코드; if(s.반) classCnt[s.반]=(classCnt[s.반]||0)+1; });
     const classEntries = Object.entries(classMap).sort((a,b)=>a[0].localeCompare(b[0]));
 
-    // cards
     let cardsHTML='';
     cells.forEach(cell=>{
       if(cell.state==='void'){ cardsHTML+=`<div style="width:8px"></div>`; return; }
@@ -1604,11 +1574,9 @@ function printAll(mode, maskNames=false){
       cardsHTML+=`<div style="border-radius:6px;border:1.5px solid ${bd};background:${bg};padding:4px 5px 5px;min-height:60px;width:${seatW}px;position:relative;display:flex;flex-direction:column;gap:1px">${inner}</div>`;
     });
 
-    // exam info
     const examObj = examByName(room.examType);
     const examDate = examObj?.date ? ` (시행일:${examObj.date})` : '';
 
-    // class info bar (proctor only)
     const ccHtml = !isStudent && Object.keys(classCnt).length
       ? `<div style="padding:4px 0;font-size:10px;display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">
           <span style="font-weight:700;color:#166534">반별 인원</span>
@@ -1631,7 +1599,6 @@ function printAll(mode, maskNames=false){
 
     return `
       <div style="page-break-after:always;padding:0">
-        <!-- 인쇄 헤더 -->
         <div style="border-bottom:2px solid #0b1120;padding-bottom:6px;margin-bottom:6px">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <span style="font-size:20px;font-weight:900">${room.name}</span>
@@ -1652,12 +1619,11 @@ function printAll(mode, maskNames=false){
 
   if(!pages){ toast('배정된 학생이 없습니다','err'); return; }
 
-  // 새 창에서 인쇄
   const w = window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>${isStudent?'학생용':'시감자용'} 전체 배치표</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:'Noto Sans KR',sans-serif;background:white;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1702,7 +1668,6 @@ document.addEventListener('keydown',e=>{
 });
 
 /* ═══ INIT ═══ */
-// onSnapshot 내부에서 renderAll()을 호출하므로 load()만 호출
 load();
 </script>
 </body>
